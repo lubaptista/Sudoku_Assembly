@@ -30,7 +30,7 @@ TITLE Sudoku em Assembly
   introd DB 10, "              SUDOKU EM ASSEMBLY", '$'
   fecha DB 10, "-----------------------------------------------------", '$'
   intro DB 10, '  Complete o jogo abaixo com numeros de 1 a 9,', 10, " sem repeti-los na mesma linha, coluna ou quadrante!!", '$'
-  denovo DB 10, 10, ' Refazer o jogo anterior -> (1)', 10, ' Tentar um novo jogo -> (2)', 10, ' Sair do programa -> (3)', '$'
+  denovo DB 10, 10, ' Refazer o jogo anterior -> (1)', 10, ' Tentar um novo jogo -> (2)', 10, ' Sair do programa -> (3)', 10, '$'
 
 .code
  ; macro para pular linha:
@@ -65,48 +65,59 @@ TITLE Sudoku em Assembly
      POP  AX                                  ; restaura os conteudos de AX 
   ENDM
 
+  add_linhav MACRO
+     LOCAL impr
+     CMP CL, 0
+     JL  impr
+     CMP CL, 8
+     JL impr
+
+     impr:
+     MOV DL, 179                              ; move para DL o caractere 205 (linha de cima da tabela)
+     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
+     espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
+
+  ENDM
 
   main PROC
      MOV AX, @DATA
-     MOV DS, AX                                ; DS é o registrador que guarda o endereço do segmento de dados 
+     MOV DS, AX                               ; DS é o registrador que guarda o endereço do segmento de dados 
 
     inicio:
-     CALL cabecalho                            ; chamada procedimento para impressao do cabecalho do programa -> 'cabecalho'
+       CALL cabecalho                         ; chamada procedimento para impressao do cabecalho do programa -> 'cabecalho'
      
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, intro                             ; coloca o endereco da mensagem 'intro' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX          
+       MOV AH, 09                             ; funcao para impressao de string 
+       LEA DX, intro                          ; coloca o endereco da mensagem 'intro' no registrador DX
+       INT 21H                                ; executa funcao, imprimindo o conteudo do endereco DX          
 
-     pula
-     pula
+       pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+       pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
      
-     LEA BX, mat_pr
-     CALL imprime_mat
+       LEA BX, mat_pr
+       CALL imprime_mat
 
     
 
 
 
-     CALL mens_final                           ; chamada procedimento para impressao de mensagem final -> 'mens_final'
+       CALL mens_final                        ; chamada procedimento para impressao de mensagem final -> 'mens_final'
+      ; analise resposta do usuario
+       CMP AL, '1'                            ; compara conteudo de AL com o caractere '1'
+       JMP inicio                             ; pula para o inicio do programa -> 'inicio'
 
-    ; analise resposta do usuario
-     CMP AL, '1'                               ; compara conteudo de AL com o caractere '1'
-     JMP inicio                                ; pula para o inicio do programa -> 'inicio'
+       CMP AL, '2'                            ; compara conteudo de AL com o caractere '2'
+       JMP muda                               ; pula para  -> 'muda'
 
-     CMP AL, '2'                               ; compara conteudo de AL com o caractere '2'
-     JMP muda                                  ; pula para  -> 'muda'
-
-     CMP AL, '3'                               ; compara conteudo de AL com o caractere '3'
-     JMP fim                                   ; pula para o final do programa -> 'fim'
+       CMP AL, '3'                            ; compara conteudo de AL com o caractere '3'
+       JMP fim                                ; pula para o final do programa -> 'fim'
 
     muda:
-     ;CALL mudanca1                             ; chamada do procedimento para mudanca da matriz solucao
+       ;CALL mudanca1                         ; chamada do procedimento para mudanca da matriz solucao
 
 
     fim:
-     MOV AH, 4CH                               ; fim do programa
-     INT 21H
-
+       MOV AH, 4CH                            ; fim do programa
+       INT 21H
   main ENDP
 
 
@@ -133,9 +144,37 @@ TITLE Sudoku em Assembly
 
   imprime_mat PROC  
      r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
+    
+     ;MOV AH, 02                                ; funcao para impressao de caracteres  
+     pula      
+
+     MOV DL, 201                               ; move para DL o caractere 201 (borda da tabela)
+     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
      
+     ;XOR CH, CH 
+     MOV CH, 9                                 ; move o conteudo da 'linha' (9) para o registrador CH (contador)
+
+    repet2:
+     MOV CL, 4                                 ; move o conteudo de 'coluna' (9) para o registrador CL (contador de colunas)
+
+    repet:
+     MOV DL, 205                               ; move para DL o caractere 205 (linha de cima da tabela)
+     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
+
+     DEC CL                                    ; decrementa CH (contador)
+     JNZ repet                                 ; enquanto CH nao for zero, voltar para repet
+     
+     MOV DL, 203                               ; move para DL o caractere 205 (linha de cima da tabela)
+     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
+  
+     DEC CH
+      JNZ repet2
+
+     
+
+     pula                                      ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+
      MOV CH, linha                             ; move o conteudo da 'linha' (9) para o registrador CH (contador de linhas)
-     MOV AH, 02                                ; funcao para impressao de caracteres              
 
      muda_linha:                               ; loop interno (mudar de linha)
        MOV CL, coluna                          ; move o conteudo de 'coluna' (9) para o registrador CL (contador de colunas)
@@ -143,6 +182,8 @@ TITLE Sudoku em Assembly
 
      muda_coluna:                              ; loop externo (mudar coluna)
         espaco                                 ; chama macro 'espaco', para pular um espaco entre os caracteres impressos  
+        
+        add_linhav
 
         MOV DL, [BX][SI]                       ; move para DL o conteudo da matriz da linha BX (inicialmente corresponde ao endereco do primeiro elemento) e coluna SI (guarda a coluna)
         CMP DL,  ?                             ; comparar conteudo de DL com o caractere '?'
@@ -176,10 +217,10 @@ TITLE Sudoku em Assembly
      LEA DX, denovo                            ; coloca o endereco da mensagem 'denovo' no registrador DX
      INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX   
 
+     XOR AL, AL                                ; operador XOR entre AL e AL, zerando o registrador AL, para armazenar a resposta do usuario (XOR entre numeros iguais = 0)
+
      MOV AH, 01                                ; funçao de leitura de caractere
      INT 21H                                   ; executa funcao, guardando o caractere inserido em AL
-
-
 
      RET
    mens_final ENDP
