@@ -47,7 +47,7 @@ TITLE Sudoku em Assembly
      INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
   ENDM
 
- ; macro para fazer push de registradores
+ ; macro para fazer push de registradores:
   r_push  MACRO 
      PUSH AX                                  ; salva os conteudos de AX 
      PUSH BX                                  ; salva os conteudos de BX 
@@ -56,7 +56,7 @@ TITLE Sudoku em Assembly
      PUSH SI                                  ; salva os conteudos de SI
   ENDM 
 
- ; macro para fazer pop de registradores
+ ; macro para fazer pop de registradores:
   r_pop  MACRO 
      POP  SI                                  ; restaura os conteudos de SI
      POP  DX                                  ; restaura os conteudos de DX 
@@ -65,19 +65,57 @@ TITLE Sudoku em Assembly
      POP  AX                                  ; restaura os conteudos de AX 
   ENDM
 
-  add_linhav MACRO
-     LOCAL impr
-     CMP CL, 0
-     JL  impr
-     CMP CL, 8
-     JL impr
+ ; macro para impressao da primeira linha de caracteres ("=") da tabela:
+  add_linha1h MACRO
+     pula                                     ; chamada macro 'pula', para pular linha entre os caracteres impressos  
 
-     impr:
+     MOV DL, 201                              ; move para DL o caractere 201 (borda esquerda da tabela)
+     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
+     
+     ;XOR CH, CH 
+     MOV CH, coluna                           ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
+
+     repet2:
+       MOV CL, 4                              ; move o numro 4 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 4 simbolos "="
+
+     repet:
+       MOV DL, 205                            ; move para DL o caractere 205 (linha de cima da tabela)
+       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
+
+       DEC CL                                 ; decrementa CL (contador de simbulo por "quadrado")
+       JNZ repet                              ; enquanto CH nao for zero, voltar para repet
+     
+       CMP CH, 1                              ; compara o conteudo de CH(contador de "quadrados") com o de 'coluna'(9), para verificar se está sendo impresso o elemento da ultima coluna)
+       JE carac_final                         ; pular para 'carac_final', se CH for igual a 'coluna', para imprimir o caractere do final da linha
+
+       MOV DL, 203                            ; move para DL o caractere 203 (linha da tabela com ligacao para baixo)
+       
+       JMP imp                                ; pular para 'imp'
+
+     carac_final:
+       MOV DL, 187                            ; move para DL o caractere 187 (borda direita da tabela)####
+
+     imp:
+       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
+
+       DEC CH                                 ; decrementa CH (contador de "quadrados")
+       JNZ repet2                             ; pular para 'repet2', enquanto CH nao for zero
+
+       pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+  ENDM
+
+ ; macro para impressao do separador vertical simples entre os numeros:
+  add_linhav MACRO
      MOV DL, 179                              ; move para DL o caractere 205 (linha de cima da tabela)
      INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
      espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
-
   ENDM
+
+ ; macro para impressao do separador vertical duplo entre os numeros:
+  add_linha2v MACRO
+     MOV DL, 186                              ; move para DL o caractere 186 (linha vertical dupla da tabela)
+     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
+  ENDM 
 
   main PROC
      MOV AX, @DATA
@@ -145,61 +183,43 @@ TITLE Sudoku em Assembly
   imprime_mat PROC  
      r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
     
-     ;MOV AH, 02                                ; funcao para impressao de caracteres  
-     pula      
-
-     MOV DL, 201                               ; move para DL o caractere 201 (borda da tabela)
-     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
-     
-     ;XOR CH, CH 
-     MOV CH, 9                                 ; move o conteudo da 'linha' (9) para o registrador CH (contador)
-
-    repet2:
-     MOV CL, 4                                 ; move o conteudo de 'coluna' (9) para o registrador CL (contador de colunas)
-
-    repet:
-     MOV DL, 205                               ; move para DL o caractere 205 (linha de cima da tabela)
-     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
-
-     DEC CL                                    ; decrementa CH (contador)
-     JNZ repet                                 ; enquanto CH nao for zero, voltar para repet
-     
-     MOV DL, 203                               ; move para DL o caractere 205 (linha de cima da tabela)
-     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
-  
-     DEC CH
-      JNZ repet2
-
-     
-
-     pula                                      ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+     add_linha1h                               ; chamada macro 'add_linha1h', para impressao da linha de cima da tabela
 
      MOV CH, linha                             ; move o conteudo da 'linha' (9) para o registrador CH (contador de linhas)
 
      muda_linha:                               ; loop interno (mudar de linha)
        MOV CL, coluna                          ; move o conteudo de 'coluna' (9) para o registrador CL (contador de colunas)
        XOR SI, SI                              ; operador XOR entre SI e SI, zerando o registrador SI, para percorrer as colunas 
+       MOV DH, '3'                               ; move 3 para DH (contador)
 
      muda_coluna:                              ; loop externo (mudar coluna)
         espaco                                 ; chama macro 'espaco', para pular um espaco entre os caracteres impressos  
         
-        add_linhav
+        CMP DH, '3'                              ; compara DH (contador) com 3, para adicionar linha dupla neste caso
+        JNE l_basica                           ; se DH nao for igual a 3, pula para 'l_basica'
 
-        MOV DL, [BX][SI]                       ; move para DL o conteudo da matriz da linha BX (inicialmente corresponde ao endereco do primeiro elemento) e coluna SI (guarda a coluna)
-        CMP DL,  ?                             ; comparar conteudo de DL com o caractere '?'
-        JE nada                                ; pula para 'nada', se conteudo de DL igual ao caractere '?'
+        add_linha2v                            ; chamada macro 'add_linha2v', para impressão de linha dupla vertical
+        JMP cont                               ; pula para 'cont'
 
-        ADD DL, 30h                            ; adiciona 30h no conteudo de DL (numero a ser impresso), para transformar o elemento da matriz em caractere parta impressao
-        JMP imprime                            ; pula para 'imprime'
+       l_basica:
+          add_linhav                           ; chamada macro 'add_linhav', para impressão de linha simples vertical               
+
+       cont:
+          MOV DL, [BX][SI]                     ; move para DL o conteudo da matriz da linha BX (inicialmente corresponde ao endereco do primeiro elemento) e coluna SI (guarda a coluna)
+          CMP DL,  ?                           ; compara conteudo de DL com o caractere '?'
+          JE nada                              ; pula para 'nada', se conteudo de DL igual ao caractere '?'
+
+          ADD DL, 30h                          ; adiciona 30h no conteudo de DL (numero a ser impresso), para transformar o elemento da matriz em caractere parta impressao
+          JMP imprime                          ; pula para 'imprime'
 
        nada: 
-        MOV DL, ' '                            ; move para DL o caractere a ser impresso, <espaco> para existir um buraco no lugar do numero faltante
+          MOV DL, ' '                          ; move para DL o caractere a ser impresso, <espaco> para existir um buraco no lugar do numero faltante
 
        imprime: 
-        INT 21H                                ; executa funcao, imprimindo o conteudo de DL
-        INC SI                                 ; ir para a prox linha
-        DEC CL                                 ; decrementa CL (contador de colunas)
-        JNZ muda_coluna                        ; enquanto CL nao for zero, pula para 'muda_coluna'
+          INT 21H                              ; executa funcao, imprimindo o conteudo de DL
+          INC SI                               ; incrementa SI, para imprimir a proxima linha
+          DEC CL                               ; decrementa CL (contador de colunas)
+          JNZ muda_coluna                      ; enquanto CL nao for zero, pula para 'muda_coluna'
 
         pula                                   ; chama macro 'pula', para pular linha entre os caracteres impressos  
 
