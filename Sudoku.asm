@@ -50,7 +50,7 @@
   fecha DB 10, "-----------------------------------------------------", '$'
   intro DB 10, '  Complete o jogo abaixo com numeros de 1 a 9,', 10, " sem repeti-los na mesma linha, coluna ou quadrante!!", '$'
   denovo DB 10, 10, 10, 10, 10, ' Refazer o jogo anterior -> (1)', 10, ' Tentar um novo jogo -> (2)', 10, ' Sair do programa -> (3)', 10, 10, '$'
-  denovo2 DB 10, 10, 10, 10, 10, ' Refazer o jogo anterior -> (1)', 10, ' Sair do programa -> (3)', 10, 10, '$'
+  denovo2 DB 10, 10, 10, 10, 10, ' Refazer o jogo anterior -> (1)', 10, 'Repetir o primeiro jogo realizado -> (2)', 10, ' Sair do programa -> (3)', 10, 10, '$'
   digite DB 10, 'Digite o numero: ','$'
   ilinha DB 10, 'Digite a linha:', '$'
   icoluna DB 10, 'Digite coluna: ','$'
@@ -197,7 +197,6 @@
        CALL mens_final                         ; chamada procedimento para impressao de mensagem final -> 'mens_final'
       
      ; analise resposta do usuario:
-     analise:
        CMP AL, '1'                             ; compara conteudo de AL com o caractere '1'
        JE inicio                               ; salta para o inicio do programa, se numero inserido for 1 -> 'inicio'
 
@@ -215,9 +214,20 @@
        CALL imprime_mat                        ; chamada procedimento para impressao da matriz -> 'imprime_mat'
 
        CALL inserir2                           ; chamada procedimento para inserir caractere no jogo -> 'inserir2'
-
+      
+      mens:
        CALL mens_final2                        ; chamada procedimento para impressao de mensagem final -> 'mens_final2'
-       JMP analise                             ; salta para 'analise'
+      
+      ; analise resposta do usuario:
+       CMP AL, '1'                             ; compara conteudo de AL com o caractere '1'
+       JE muda                                 ; salta para o inicio do jogo 2, se numero inserido for 1 -> 'muda'
+
+       CMP AL, '2'                             ; compara conteudo de AL com o caractere '2'
+       JE inicio                               ; salta para mudar para o jogo 1, se numero inserido for 2 -> 'inicio'
+
+       CMP AL, '3'                             ; compara conteudo de AL com o caractere '3'
+       JE fim                                  ; salta para o final do programa, se numero inserido for -> 'fim'
+       JMP mens                                ; salta para 'mens'
 
     fim:
        MOV AH, 4CH                             ; fim do programa
