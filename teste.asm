@@ -319,6 +319,7 @@
        MOV mat_pr[BX][SI], DH
        LEA BX, mat_pr
        CALL imprime_mat
+       pula                                    ; chamada macro 'pula', para pular linha entre os caracteres impressos
        JMP comeco
 
      nao:
