@@ -186,7 +186,7 @@
 
      CALL limpa_cor                            ; chamada procedimento para limpar e colorir a tela -> 'limpa_cor'
 
-    inicio:
+     inicio:
        CALL cabecalho                          ; chamada procedimento para impressao do cabecalho do programa -> 'cabecalho'
      
        LEA BX, mat_pr                          ; coloca o endereco da matriz definida 'mat_pr' no registrador BX (linhas)
@@ -194,20 +194,22 @@
 
        CALL inserir                            ; chamada procedimento para inserir caractere no jogo -> 'inserir'
 
-
+     mensagem: 
        CALL mens_final                         ; chamada procedimento para impressao de mensagem final -> 'mens_final'
-      ; analise resposta do usuario
-      analise:
+      
+     ; analise resposta do usuario:
+     analise:
        CMP AL, '1'                             ; compara conteudo de AL com o caractere '1'
-       JMP inicio                              ; pula para o inicio do programa -> 'inicio'
+       JE inicio                               ; pula para o inicio do programa, se numero inserido for 1 -> 'inicio'
 
        CMP AL, '2'                             ; compara conteudo de AL com o caractere '2'
-       JMP muda                                ; pula para  -> 'muda'
+       JE muda                                 ; pula para mudar o jogo, se numero inserido for 2 -> 'muda'
 
        CMP AL, '3'                             ; compara conteudo de AL com o caractere '3'
-       JMP fim                                 ; pula para o final do programa -> 'fim'
+       JE fim                                  ; pula para o final do programa, se numero inserido for -> 'fim'
+       JMP mensagem                            ; pula para 'mensagem'
 
-    muda:
+     muda:
        CALL cabecalho
  
        XOR BX, BX
