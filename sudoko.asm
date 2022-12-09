@@ -1,10 +1,9 @@
-TITLE Sudoku em Assembly
+TITLE Beatriz Newman, RA: 22002150 / Luana Baptista, RA: 22006563
 .model small
 .data
   linha EQU 9
   coluna EQU 9
-  linha2 DB ?
-  COLUNA2 DB ?
+  erros DB 0
 
   mat_sol DB 1, 4, 6, 9, 2, 3, 5, 7, 8
           DB 8, 3, 9, 7, 5, 4, 2, 6, 1
@@ -17,7 +16,7 @@ TITLE Sudoku em Assembly
           DB 7, 8, 2, 3, 1, 9, 4, 5, 6
 
   mat_pr  DB 1, 4, ?, ?, 2, ?, 5, ?, 8
-          DB ?, ?, 9, 7, 5, ?, ?, 6, ?
+          DB ?, ?, 9, 7, 5, ?, ?, 6, '?'
           DB 2, ?, ?, 1, ?, ?, 3, ?, ?
           DB ?, 9, 7, ?, 3, ?, 6, 4, ?
           DB ?, ?, 8, ?, ?, 2, ?, ?, 5
@@ -36,7 +35,10 @@ TITLE Sudoku em Assembly
   digite DB 10, 'Digite o numero: ','$'
   ilinha DB 10, 'Digite a linha:', '$'
   icoluna DB 10, 'Digite coluna: ','$'
-  erro DB 10, 'erro, insira novamente outro numero!','$'
+  erro DB 10, ' Tente novamente! Voce so pode cometer 5 erros, cuidado!','$'
+  erro_comet DB 10, ' Erros cometidos: ', '$'
+  erro1 DB 10, ' Posicao nao pode ser alterada, tente inserir outra linha e coluna!', '$'
+  perda DB 10, ' GAME OVER!!', 10, ' Voce cometeu 5 erros!', '$'
 
 .code
  ; macro para pular linha:
@@ -53,24 +55,17 @@ TITLE Sudoku em Assembly
      INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
   ENDM
 
- ; macro para imprimir string 
+ ; macro para imprimir string (AH 09 - INT 21H):
   imp_str MACRO STR 
-    MOV AH,09
-    LEA DX,STR
-    INT 21H 
+    MOV AH,09                                 ; funcao para impressao de string 
+    LEA DX,STR                                ; coloca o endereco da mensagem 'str' (sera passada na chamada da macro) no registrador DX
+    INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX  
   ENDM
 
- ; macro para limpar e colorir a tela 
-  limpa_cor MACRO
-    MOV AX,0003H
-    INT 10H                                  ; função que limpa a tela 
-    MOV AH, 00H
-    MOV AH, 09H
-    MOV BH, 00H
-    MOV AL, 20H
-    MOV CX, 800H
-    MOV BL, 5FH                              ; cor desejada (roxo)
-    INT 10H                                  ; chama o sistema operacional para realizar a função 
+ ; macro que faz leitura (AH 01 - INT 21H):
+  faz_leitura MACRO
+    MOV AH,01                                 ; funçao de leitura de caractere(para leitura da operacao a ser realizada)
+    INT 21H                                   ; executa funcao, guardando o caractere inserido em AL
   ENDM
 
  ; macro para fazer push de registradores:
@@ -91,13 +86,13 @@ TITLE Sudoku em Assembly
      POP  AX                                  ; restaura os conteudos de AX 
   ENDM
 
- ; macro para funcao 'LOCAL', nescessário na macro 'add_linha1h'
+ ; macro para funcao 'LOCAL', nescessário na macro 'add_linha1h':
   mlocal MACRO
-      LOCAL repet
-      LOCAL repet2
-      LOCAL dif
-      LOCAL imp
-      LOCAL carac_final
+      LOCAL repet                             ; Informa ao montador que o label 'repet' eh local
+      LOCAL repet2                            ; Informa ao montador que o label 'repet2' eh local
+      LOCAL dif                               ; Informa ao montador que o label 'dif' eh local
+      LOCAL imp                               ; Informa ao montador que o label 'imp' eh local
+      LOCAL carac_final                       ; Informa ao montador que o label 'carac_final' eh local
   ENDM
 
  ; macro para impressao da primeira linha de caracteres ("=") da tabela:
@@ -165,66 +160,54 @@ TITLE Sudoku em Assembly
      espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
   ENDM 
 
+
   main PROC
      MOV AX, @DATA
-     MOV DS, AX                               ; DS é o registrador que guarda o endereço do segmento de dados 
+     MOV DS, AX                                ; DS é o registrador que guarda o endereço do segmento de dados 
 
-     limpa_cor
+     CALL limpa_cor                            ; chamada procedimento para limpar e colorir a tela -> 'limpa_cor'
 
     inicio:
-       CALL cabecalho                         ; chamada procedimento para impressao do cabecalho do programa -> 'cabecalho'
+       CALL cabecalho                          ; chamada procedimento para impressao do cabecalho do programa -> 'cabecalho'
      
-       ;pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
-     
-       LEA BX, mat_pr
-       CALL imprime_mat
+       LEA BX, mat_pr                          ; coloca o endereco da matriz definida 'mat_pr' no registrador BX (linhas)
+       CALL imprime_mat                        ; chamada procedimento para impressao da matriz -> 'imprime_mat'
 
-       CALL linhaa1
-       CALL linhaa2
+       CALL inserir                            ; chamada procedimento para inserir caractere no jogo -> 'inserir'
 
 
-
-       CALL mens_final                        ; chamada procedimento para impressao de mensagem final -> 'mens_final'
+       CALL mens_final                         ; chamada procedimento para impressao de mensagem final -> 'mens_final'
       ; analise resposta do usuario
-       CMP AL, '1'                            ; compara conteudo de AL com o caractere '1'
-       JMP inicio                             ; pula para o inicio do programa -> 'inicio'
+       CMP AL, '1'                             ; compara conteudo de AL com o caractere '1'
+       JMP inicio                              ; pula para o inicio do programa -> 'inicio'
 
-       CMP AL, '2'                            ; compara conteudo de AL com o caractere '2'
-       JMP muda                               ; pula para  -> 'muda'
+       CMP AL, '2'                             ; compara conteudo de AL com o caractere '2'
+       JMP muda                                ; pula para  -> 'muda'
 
-       CMP AL, '3'                            ; compara conteudo de AL com o caractere '3'
-       JMP fim                                ; pula para o final do programa -> 'fim'
+       CMP AL, '3'                             ; compara conteudo de AL com o caractere '3'
+       JMP fim                                 ; pula para o final do programa -> 'fim'
 
     muda:
-       ;CALL mudanca1                         ; chamada do procedimento para mudanca da matriz solucao
+       ;CALL mudanca1                          ; chamada do procedimento para mudanca da matriz solucao
 
 
     fim:
-       MOV AH, 4CH                            ; fim do programa
+       MOV AH, 4CH                             ; fim do programa
        INT 21H
   main ENDP
 
 
+ ; procedimento para impressao do cabecalho do programa
   cabecalho PROC
      r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
 
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, abertura                          ; coloca o endereco da mensagem 'abertura' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX            
-    
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, introd                            ; coloca o endereco da mensagem 'introd' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX              
- 
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, fecha                             ; coloca o endereco da mensagem 'fecha' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX  
+     imp_str abertura                          ; chamada macro 'imp_str', para impressao da mensagem 'abertura'          
+     imp_str introd                            ; chamada macro 'imp_str', para impressao da mensagem 'introd'   
+     imp_str fecha                             ; chamada macro 'imp_str', para impressao da mensagem 'fecha'   
 
      pula                                      ; chamada macro 'pula', para pular linha entre os caracteres impressos  
 
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, intro                             ; coloca o endereco da mensagem 'intro' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX          
+     imp_str intro                             ; chamada macro 'imp_str', para impressao da mensagem 'intro'          
 
      pula                                      ; chamada macro 'pula', para pular linha entre os caracteres impressos 
      
@@ -232,134 +215,105 @@ TITLE Sudoku em Assembly
      RET
   cabecalho ENDP
 
-  impa proc 
+ ; procedimento para limpar e colorir a tela:
+  limpa_cor PROC
      r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
 
-     MOV linha2,9
-     MOV COLUNA2,9
-     LEA BX, mat_pr
-     CALL imprime_mat
-
-     pula
+     MOV AX,0003H                              ; função que limpa a tela 
+     INT 10H                                   ; executa funcao
+     MOV AH, 09H                               ; move 09H para o registrador AH
+     MOV BH, 00H                               ; move 00H para o registrador BH
+     MOV AL, 20H                               ; move 20H para o registrador AL
+     MOV CX, 800H                              ; move 800H para o registrador CX
+     MOV BL, 5FH                               ; move 5FH para o registrador BL, passando para ele o codigo da cor desejada (roxo)
+     INT 10H                                   ; chama o sistema operacional para realizar a função 
 
      r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
-     ret 
-  impa ENDP
+     RET
+  limpa_cor ENDP
 
+ ; procedimento para inserir caractere no jogo:
   inserir PROC 
-    r_push
-    XOR AX,AX
-    XOR SI,SI 
-    pula
-    MOV AH,BH
-    MOV BX,CX                                 ; BX contem o numero da posição da linha 
-    XOR CX,CX                                 ; zera CX
-    MOV CX,1
+     r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
 
-    linha1:
-MOV mat_pr[BX][SI],AH                        ; move AH para a posição desejada 
-LOOP linha1
-pula
-CALL IMPA
-RET 
-inserir ENDP 
+     comeco: 
+       imp_str ilinha                          ; chamada macro 'imp_str', para impressao da mensagem 'ilinha'    
+       faz_leitura                             ; chamada macro 'faz_leitura', para fazer leitura de um caractere  
+       XOR AH, AH                              ; operador XOR entre AH e AH, zerando o registrador AH, para AX possuir so conteudo de AL (XOR entre numeros iguais = 0)
+       MOV BX, AX                              ; move conteúdo de AX (numero inserido) para o registrador BX (linha)
+       OR BX, 30h                              ; operador OR entre o conteudo de BX e o numero hexadecimal 30h, obtendo o valor decimal em BX
 
-linhaa1 proc
-INICIO1:
- MOV AH, 09                                ; funcao para impressao de string 
- LEA DX, ilinha                            ; coloca o endereco da mensagem 'denovo' no registrador DX
- INT 21H
- MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
- INT 21H 
- MOV CH,AL
- SUB CH,30H
- CMP CH,1
- JE COLUNA1
- JMP FINAL
+       imp_str icoluna                         ; chamada macro 'imp_str', para impressao da mensagem 'icoluna'  
+       faz_leitura                             ; chamada macro 'faz_leitura', para fazer leitura de um caractere  
+       XOR AH, AH                              ; operador XOR entre AH e AH, zerando o registrador AH, para AX possuir so conteudo de AL (XOR entre numeros iguais = 0)
+       MOV SI, AX                              ; move conteúdo de AX (numero inserido) para o registrador SI (coluna) 
+       OR SI, 30h                              ; operador OR entre o conteudo de SI e o numero hexadecimal 30h, obtendo o valor decimal em SI
 
-COLUNA1: 
- MOV AH, 09                                ; funcao para impressao de string 
- LEA DX, icoluna                           ; coloca o endereco da mensagem 'denovo' no registrador DX
- INT 21H
- MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
- INT 21H 
- MOV CL,AL
- SUB CL, 30H
+       imp_str digite                          ; chamada macro 'imp_str', para impressao da mensagem 'digite'
+       faz_leitura                             ; chamada macro 'faz_leitura', para fazer leitura de um caractere 
+       MOV DH, AL                              ; move conteúdo de AL (numero inserido) para o registrador DH (numero a ser inserido no sudoku) 
+       OR DH, 30h                              ; operador OR entre o conteudo de DH e o numero hexadecimal 30h, obtendo o valor decimal em SI
+       
+       DEC SI
+       DEC BX
+       XCHG AX, BX                
+       MUL CH                       ; O registrador eh o multiplicando e o CX que contem 9 eh o multiplicando
+       XCHG AX, BX
 
- CMP CL,3
-JE COLUNA3
-CMP CL,4
-JE COLUNA4
-CMP CL,6
-JE COLUNA6
-CMP CL,8
-JE COLUNA8
+       PUSH BX
 
-COLUNA3:
-MOV AH,09H
-LEA DX, digite                            ; coloca o endereco da mensagem 'denovo' no registrador DX
-INT 21H
-MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
-INT 21H 
-MOV BH,AL
-SUB BH, 30H
-CMP BH,6
-JE CERTO
-JMP ERRO1
+       LEA CX, mat_pr
+       ADD BX, CX 
+       MOV CX, [BX][SI] 
+       CMP CX , 0
+       JNE nao
 
-COLUNA4:
-MOV AH,09H
-LEA DX, digite                            ; coloca o endereco da mensagem 'denovo' no registrador DX
-INT 21H
-MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
-INT 21H 
-MOV BH,AL
-SUB BH, 30H
-CMP BH,9
-JE CERTO
-JMP ERRO1
+       POP BX
 
-COLUNA6:
-MOV AH,09H
-LEA DX, digite                            ; coloca o endereco da mensagem 'denovo' no registrador DX
-INT 21H
-MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
-INT 21H 
-MOV BH,AL
-SUB BH, 30H
-CMP BH,3
-JE CERTO
-JMP ERRO1
+       PUSH BX 
 
-COLUNA8:
-MOV AH,09H
-LEA DX, digite                            ; coloca o endereco da mensagem 'denovo' no registrador DX
-INT 21H
-MOV AH,01                                 ; executa funcao, imprimindo o conteudo do endereco DX
-INT 21H 
-MOV BH,AL
-SUB BH, 30H
-CMP BH,7
-JE CERTO
-JMP ERRO1
+       LEA CX, mat_sol
+       ADD BX, CX 
+       XOR CX, CX
+       MOV CH, [BX][SI]
+       CMP CH, DH                   ; DH contem caractere adicionado e CX a resposta correta da posicao
+       JNZ errado
 
+       POP BX
+       
+       LEA CX, mat_pr 
+       ADD BX, CX 
+       MOV [BX][SI], DH
+       LEA BX, mat_pr
+       CALL imprime_mat
+       JMP comeco
 
+     nao:
+       imp_str erro1
+       JMP comeco
 
-CERTO: 
- XOR CH,CH 
- DEC CL 
- CALL inserir
- JMP FINAL
-ERRO1: 
-MOV AH,09H
- LEA DX, ERRO                             ; coloca o endereco da mensagem 'denovo' no registrador DX
- INT 21H
- JMP INICIO1
- 
-FINAL: 
-RET
-linhaa1 endp
+     errado: 
+       INC erros                               ; soma 1 a 'erros' (contador de erros)
+       CMP erros, 5                             ; compara 'erro' com 5 (numero maximo de erros)
+       JE perdeu 
 
+       imp_str erro_comet                      ; 
+       MOV AH, 02 
+       ADD DL, 30h
+       MOV DL, erros
+       INT 21H
+       imp_str erro                            ; 
+
+       JMP comeco
+
+     perdeu: 
+       imp_str perda
+       
+     r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
+     RET
+  inserir ENDP
+
+ ; procedimento para impressao da matriz:
   imprime_mat PROC  
      r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
     
@@ -411,21 +365,21 @@ linhaa1 endp
         add_linha2v                            ; chamada macro 'add_linha2v', para impressão de linha dupla vertical
         pula                                   ; chama macro 'pula', para pular linha entre os caracteres impressos
 
-        CMP CH, 7 
-        JE linhadup
-        CMP CH, 4
-        JE linhadup
-        JMP cont2
+        CMP CH, 7                              ; compara conteudo de CH com 7 (terceira coluna)
+        JE linhadup                            ; salta para 'linhadup', se CH for igual a 7
+        CMP CH, 4                              ; compara conteudo de CH com 4 (sexta coluna)
+        JE linhadup                            ; salta para 'linhadup', se CH for igual a 4
+        JMP cont2                              ; salta para 'cont2'
         
      linhadup:
-       CALL add_linha3h
+       CALL add_linha3h                        ; chama procedimento 'add_linha3h', para imprimir linha horizontal central
 
      cont2:
         ADD BX, coluna                         ; adiciona 'coluna' (quantidade de elementos da linha) com BX (endeco da linha lida)
         DEC CH                                 ; decrementa CH (contador de linhas)
         JNZ muda_linha                         ; enquanto CH nao for zero, pula para 'muda_linha'
 
-        CALL add_linha2h
+        CALL add_linha2h                       ; chama procedimento 'add_linha2h', para imprimir linha horizontal final
 
      r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
      RET
@@ -433,161 +387,109 @@ linhaa1 endp
 
  ; procedimento para impressao da ultima linha de caracteres ("=") da tabela:
   add_linha2h PROC
-     r_push                                   ; chamada macro 'r_push', para salvar conteudos dos registradores
-     espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
+     r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
+     espaco                                    ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
 
-     MOV DL, 200                              ; move para DL o caractere 200 (borda esquerda inferior da tabela) 
-     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
+     MOV DL, 200                               ; move para DL o caractere 200 (borda esquerda inferior da tabela) 
+     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
      
-     MOV CH, coluna                           ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
+     MOV CH, coluna                            ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
 
      repet4:
-       MOV CL, 3                              ; move o numero 3 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 3 simbolos "="
+       MOV CL, 3                               ; move o numero 3 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 3 simbolos "="
 
      repet3:
-       MOV DL, 205                            ; move para DL o caractere 205 (linha de cima da tabela)
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
+       MOV DL, 205                             ; move para DL o caractere 205 (linha de cima da tabela)
+       INT 21H                                 ; executa funcao, imprimindo o conteudo de DL
 
-       DEC CL                                 ; decrementa CL (contador de simbulo por "quadrado")
-       JNZ repet3                             ; enquanto CH nao for zero, voltar para 'repet3'
+       DEC CL                                  ; decrementa CL (contador de simbulo por "quadrado")
+       JNZ repet3                              ; enquanto CH nao for zero, voltar para 'repet3'
      
-       CMP CH, 1                              ; compara o conteudo de CH(contador de "quadrados") com 1, para verificar se está sendo impresso o elemento da ultima coluna)
-       JE carac_final2                        ; pular para 'carac_final2', se CH for igual a 'coluna', para imprimir o caractere do final da linha
+       CMP CH, 1                               ; compara o conteudo de CH(contador de "quadrados") com 1, para verificar se está sendo impresso o elemento da ultima coluna)
+       JE carac_final2                         ; pular para 'carac_final2', se CH for igual a 'coluna', para imprimir o caractere do final da linha
 
-       CMP CH, 7                              ; compara o conteudo de CH(contador de "quadrados") com 7, para verificar se está sendo impresso o elemento da terceira coluna)
-       JE dif2                                ; salta para 'dif2', se CH fro igual a 7
-       CMP CH, 4                              ; compara o conteudo de CH(contador de "quadrados") com 4, para verificar se está sendo impresso o elemento da sexta coluna)
-       JE dif2                                ; salta para 'dif2', se CH fro igual a 4
+       CMP CH, 7                               ; compara o conteudo de CH(contador de "quadrados") com 7, para verificar se está sendo impresso o elemento da terceira coluna)
+       JE dif2                                 ; salta para 'dif2', se CH fro igual a 7
+       CMP CH, 4                               ; compara o conteudo de CH(contador de "quadrados") com 4, para verificar se está sendo impresso o elemento da sexta coluna)
+       JE dif2                                 ; salta para 'dif2', se CH fro igual a 4
        
-       JMP imp2                               ; salta para 'imp2'
+       JMP imp2                                ; salta para 'imp2'
 
      dif2:
-       MOV DL, 202                            ; move para DL o caractere 202 (linha da tabela com ligacao para cima)
+       MOV DL, 202                             ; move para DL o caractere 202 (linha da tabela com ligacao para cima)
        
-       JMP imp2                               ; pular para 'imp2'
+       JMP imp2                                ; pular para 'imp2'
 
      carac_final2:
-       MOV DL, 188                            ; move para DL o caractere 188 (borda direita inferior da tabela)
+       MOV DL, 188                             ; move para DL o caractere 188 (borda direita inferior da tabela)
 
      imp2:
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
-       DEC CH                                 ; decrementa CH (contador de "quadrados")
-       JNZ repet4                             ; pular para 'repet4', enquanto CH nao for zero
+       INT 21H                                 ; executa funcao, imprimindo o conteudo de DL
+       DEC CH                                  ; decrementa CH (contador de "quadrados")
+       JNZ repet4                              ; pular para 'repet4', enquanto CH nao for zero
 
-       pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+       pula                                    ; chamada macro 'pula', para pular linha entre os caracteres impressos 
      
-     r_pop                                    ; chamada macro 'r_pop', para restaurar conteudos dos registradores
+     r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
      RET
   add_linha2h ENDP
 
  ; procedimento para impressao da linha central de caracteres ("=") da tabela:
   add_linha3h PROC
-     r_push                                   ; chamada macro 'r_push', para salvar conteudos dos registradores
-     espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
+     r_push                                    ; chamada macro 'r_push', para salvar conteudos dos registradores
+     espaco                                    ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
 
-     MOV DL, 204                              ; move para DL o caractere 204 (lateral esquerda meio da tabela) 
-     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
+     MOV DL, 204                               ; move para DL o caractere 204 (lateral esquerda meio da tabela) 
+     INT 21H                                   ; executa funcao, imprimindo o conteudo de DL
      
-     MOV CH, coluna                           ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
+     MOV CH, coluna                            ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
 
      repet6:
-       MOV CL, 3                              ; move o numero 3 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 3 simbolos "="
+       MOV CL, 3                               ; move o numero 3 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 3 simbolos "="
 
      repet5:
-       MOV DL, 205                            ; move para DL o caractere 205 (linha de cima da tabela)
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
+       MOV DL, 205                             ; move para DL o caractere 205 (linha de cima da tabela)
+       INT 21H                                 ; executa funcao, imprimindo o conteudo de DL
 
-       DEC CL                                 ; decrementa CL (contador de simbulo por "quadrado")
-       JNZ repet5                             ; enquanto CH nao for zero, voltar para 'repet5'
+       DEC CL                                  ; decrementa CL (contador de simbulo por "quadrado")
+       JNZ repet5                              ; enquanto CH nao for zero, voltar para 'repet5'
      
-       CMP CH, 1                              ; compara o conteudo de CH(contador de "quadrados") com 1, para verificar se está sendo impresso o elemento da ultima coluna)
-       JE carac_final3                        ; pular para 'carac_final3', se CH for igual a 'coluna', para imprimir o caractere do final da linha
+       CMP CH, 1                               ; compara o conteudo de CH(contador de "quadrados") com 1, para verificar se está sendo impresso o elemento da ultima coluna)
+       JE carac_final3                         ; pular para 'carac_final3', se CH for igual a 'coluna', para imprimir o caractere do final da linha
 
-       CMP CH, 7                              ; compara o conteudo de CH(contador de "quadrados") com 7, para verificar se está sendo impresso o elemento da terceira coluna)
-       JE dif3                                ; salta para 'dif3', se CH fro igual a 7
-       CMP CH, 4                              ; compara o conteudo de CH(contador de "quadrados") com 4, para verificar se está sendo impresso o elemento da sexta coluna)
-       JE dif3                                ; salta para 'dif3', se CH fro igual a 4
+       CMP CH, 7                               ; compara o conteudo de CH(contador de "quadrados") com 7, para verificar se está sendo impresso o elemento da terceira coluna)
+       JE dif3                                 ; salta para 'dif3', se CH fro igual a 7
+       CMP CH, 4                               ; compara o conteudo de CH(contador de "quadrados") com 4, para verificar se está sendo impresso o elemento da sexta coluna)
+       JE dif3                                 ; salta para 'dif3', se CH fro igual a 4
        
-       JMP imp3                               ; salta para 'imp3'
+       JMP imp3                                ; salta para 'imp3'
 
      dif3:
-       MOV DL, 206                            ; move para DL o caractere 206 (simbulo meio da tabela com ligacao para todos os lados)
+       MOV DL, 206                             ; move para DL o caractere 206 (simbulo meio da tabela com ligacao para todos os lados)
        
-       JMP imp3                               ; pular para 'imp3'
+       JMP imp3                                ; pular para 'imp3'
 
      carac_final3:
-       MOV DL, 185                            ; move para DL o caractere 185 (lateral direita central da tabela)
+       MOV DL, 185                             ; move para DL o caractere 185 (lateral direita central da tabela)
 
      imp3:
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
-       DEC CH                                 ; decrementa CH (contador de "quadrados")
-       JNZ repet6                             ; pular para 'repet6', enquanto CH nao for zero
+       INT 21H                                 ; executa funcao, imprimindo o conteudo de DL
+       DEC CH                                  ; decrementa CH (contador de "quadrados")
+       JNZ repet6                              ; pular para 'repet6', enquanto CH nao for zero
 
-       pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
+       pula                                    ; chamada macro 'pula', para pular linha entre os caracteres impressos 
 
-       r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
-       RET
+     r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
+     RET
   add_linha3h ENDP
 
- ; procedimento para impressao da linha central dentro dos "quadrados" de caracteres ("=") da tabela:
-  add_linha4h PROC
-     r_push                                   ; chamada macro 'r_push', para salvar conteudos dos registradores
-     pula
-     espaco                                   ; chama macro 'espaco', para pular um espaco entre os caracteres impressos 
-
-     MOV DL, 186                              ; move para DL o caractere 186 (linha vertical dupla da tabela) 
-     INT 21H                                  ; executa funcao, imprimindo o conteudo de DL
-     
-     MOV CH, coluna                           ; move o conteudo da 'coluna'(9) para o registrador CH (contador)
-
-     repet8:
-       MOV CL, 3                              ; move o numero 3 para o registrador CL (contador), pois 1 "numero" do sudoko possui espaco de 3 simbolos "="
-
-     repet7:
-       MOV DL, 205                            ; move para DL o caractere 205 (linha de cima da tabela)
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
-
-       DEC CL                                 ; decrementa CL (contador de simbulo por "quadrado")
-       JNZ repet7                             ; enquanto CH nao for zero, voltar para 'repet7'
-     
-       CMP CH, 1                              ; compara o conteudo de CH(contador de "quadrados") com 1, para verificar se está sendo impresso o elemento da ultima coluna)
-       JE carac_final4                        ; pular para 'carac_final4', se CH for igual a 'coluna', para imprimir o caractere do final da linha
-
-       CMP CH, 7                              ; compara o conteudo de CH(contador de "quadrados") com 7, para verificar se está sendo impresso o elemento da terceira coluna)
-       JE dif4                                ; salta para 'dif4', se CH fro igual a 7
-       CMP CH, 4                              ; compara o conteudo de CH(contador de "quadrados") com 4, para verificar se está sendo impresso o elemento da sexta coluna)
-       JE dif4                                ; salta para 'dif4', se CH fro igual a 4
-       
-       JMP imp4                               ; salta para 'imp4'
-
-     dif4:
-       MOV DL, 206                            ; move para DL o caractere 206 (simbulo meio da tabela com ligacao para todos os lados)
-       
-       JMP imp4                               ; pular para 'imp4'
-
-     carac_final4:
-       MOV DL, 185                            ; move para DL o caractere 185 (lateral direita central da tabela)
-
-     imp4:
-       INT 21H                                ; executa funcao, imprimindo o conteudo de DL
-       DEC CH                                 ; decrementa CH (contador de "quadrados")
-       JNZ repet8                             ; pular para 'repet8', enquanto CH nao for zero
-
-       ;pula                                   ; chamada macro 'pula', para pular linha entre os caracteres impressos 
-
-       r_pop                                     ; chamada macro 'r_pop', para restaurar conteudos dos registradores
-       RET
-  ENDP
-
+ ; procedimento para impressao de mensagem final:
    mens_final PROC
-     MOV AH, 09                                ; funcao para impressao de string 
-     LEA DX, denovo                            ; coloca o endereco da mensagem 'denovo' no registrador DX
-     INT 21H                                   ; executa funcao, imprimindo o conteudo do endereco DX   
+     imp_str denovo                            ; chamada macro 'imp_str', para impressao da mensagem 'denovo' 
 
      XOR AL, AL                                ; operador XOR entre AL e AL, zerando o registrador AL, para armazenar a resposta do usuario (XOR entre numeros iguais = 0)
-
-     MOV AH, 01                                ; funçao de leitura de caractere
-     INT 21H                                   ; executa funcao, guardando o caractere inserido em AL
+     
+     faz_leitura                               ; chamada macro 'faz_leitura', para fazer leitura de um caractere 
 
      RET
    mens_final ENDP
